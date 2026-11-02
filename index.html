@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seattle Events</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="auth-view" class="auth-card">
+      <h1>Seattle Events</h1>
+      <p class="muted">Sign in to review and browse upcoming events.</p>
+      <form id="password-form" class="stack">
+        <label>Email<input id="email" type="email" autocomplete="email" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password"></label>
+        <button type="submit">Sign in</button>
+      </form>
+      <div class="divider"><span>or</span></div>
+      <form id="magic-form" class="stack">
+        <label>Email for magic link<input id="magic-email" type="email" autocomplete="email" required></label>
+        <button type="submit" class="secondary">Email magic link</button>
+      </form>
+      <p id="auth-message" class="status"></p>
+    </section>
+
+    <section id="app-view" hidden>
+      <header class="topbar">
+        <div><h1>Seattle Events</h1><p id="user-line" class="muted"></p></div>
+        <div class="topbar-actions">
+          <nav class="tabs" aria-label="Views">
+            <button id="tab-review" class="tab active" type="button">Review</button>
+            <button id="tab-table" class="tab" type="button">All events</button>
+          </nav>
+          <button id="logout" class="secondary" type="button">Sign out</button>
+        </div>
+      </header>
+
+      <section id="review-view">
+        <div class="review-toolbar">
+          <div><strong id="queue-count">0</strong> <span class="muted">unreviewed</span></div>
+          <button id="refresh-review" class="secondary" type="button">Refresh</button>
+        </div>
+        <div id="review-empty" class="empty" hidden><h2>Review queue is clear</h2><p>No upcoming unreviewed events remain.</p></div>
+        <article id="event-card" class="event-card" hidden>
+          <div class="event-meta"><span id="card-date" class="date-pill"></span><span id="card-venue" class="venue"></span></div>
+          <h2 id="card-title"></h2>
+          <p id="card-artists" class="artists"></p>
+          <dl class="details">
+            <div><dt>When</dt><dd id="card-when"></dd></div>
+            <div id="card-age-row"><dt>Age</dt><dd id="card-age"></dd></div>
+            <div id="card-source-row"><dt>Source</dt><dd id="card-source"></dd></div>
+          </dl>
+          <div class="link-row">
+            <a id="card-event-link" href="#" target="_blank" rel="noopener">Event page</a>
+            <a id="card-ticket-link" href="#" target="_blank" rel="noopener">Tickets</a>
+          </div>
+          <div class="review-actions">
+            <button id="dismiss" class="danger" type="button">Not interested</button>
+            <button id="interested" class="success" type="button">Interested</button>
+          </div>
+          <p class="keyboard-hint">Keyboard: ← dismiss · → interested</p>
+        </article>
+      </section>
+
+      <section id="table-view" hidden>
+        <div class="table-toolbar">
+          <input id="search" type="search" placeholder="Search title, artist, venue…">
+          <select id="status-filter">
+            <option value="all">All statuses</option>
+            <option value="unreviewed">Unreviewed</option>
+            <option value="interested">Interested</option>
+            <option value="not_interested">Not interested</option>
+          </select>
+          <button id="refresh-table" class="secondary" type="button">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Event</th><th>Artists / support</th><th>Venue</th><th>Status</th><th>Links</th></tr></thead>
+            <tbody id="events-body"></tbody>
+          </table>
+        </div>
+        <p id="table-message" class="status"></p>
+      </section>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

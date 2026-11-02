@@ -42,7 +42,7 @@ No build step is required.
 ## Expected columns
 Required:
 - `id`
-- `event_start`
+- `start_at`
 - `title`
 - `venue`
 - `review_status`

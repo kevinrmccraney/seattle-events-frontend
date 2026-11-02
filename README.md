@@ -4,7 +4,7 @@ Static GitHub Pages frontend for the Seattle Events project.
 
 ## Changes in v2
 
-- `Interested` is now the default signed-in view.
+- `Interested` remains the default signed-in view and is now grouped into Soon, Future, and Far future tables.
 - Uses the deployed schema's canonical `start_at` and `end_at` fields.
 - Interested view shows upcoming events where:
   - `review_status = 'interested'`
@@ -18,7 +18,13 @@ Static GitHub Pages frontend for the Seattle Events project.
 ### Interested
 Default view after login.
 
-Shows upcoming interested events with:
+Shows upcoming interested events in three chronological table groups:
+
+- **Soon** — next 30 days
+- **Future** — 31–90 days
+- **Far future** — more than 90 days away
+
+Each group is sorted by `start_at` ascending and shows:
 - date/time
 - title
 - support

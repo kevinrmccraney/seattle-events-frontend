@@ -113,34 +113,6 @@ button.danger { background: #8a2f2f; border-color: #8a2f2f; }
 .table-toolbar input { flex: 1 1 360px; }
 .table-toolbar select { width: auto; min-width: 170px; }
 
-.interested-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-}
-.interested-card {
-  background: white;
-  border: 1px solid #d9d6cf;
-  border-radius: 16px;
-  padding: 20px;
-}
-.interested-card h3 {
-  font-size: 1.25rem;
-  margin-bottom: 8px;
-}
-.interested-card .meta {
-  color: #6f6b65;
-  margin-bottom: 10px;
-}
-.interested-card .support {
-  margin-bottom: 10px;
-}
-.interested-card .links {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.interested-card .links a { color: #144c8a; }
 
 .event-card {
   width: min(680px, 100%);
@@ -254,4 +226,40 @@ td a { color: #144c8a; }
   .table-toolbar { align-items: stretch; flex-direction: column; }
   .table-toolbar select { width: 100%; }
   .event-card { padding: 22px; }
+}
+
+
+.interest-group {
+  margin: 0 0 30px;
+}
+.interest-group-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.interest-group-heading h2 {
+  margin-bottom: 2px;
+}
+.interest-group-heading p {
+  margin-bottom: 0;
+}
+.count-badge {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e9e6df;
+  color: #4f4b46;
+  font-weight: 700;
+}
+.group-empty {
+  padding: 12px 0 20px;
+}
+.interested-table {
+  min-width: 900px;
 }

@@ -152,16 +152,18 @@ tabReview.addEventListener("click", () => showView("review"));
 tabTable.addEventListener("click", () => showView("table"));
 
 async function loadInterested() {
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+
   const { data, error } = await supabase
     .from("events")
     .select("*")
     .eq("review_status", "interested")
-    .gte("start_at", now)
+    .gte("start_at", nowIso)
     .order("start_at", { ascending: true });
 
   if (error) {
-    $("interested-list").innerHTML = "";
+    $("interested-groups").innerHTML = "";
     $("interested-empty").hidden = false;
     $("interested-empty").innerHTML = `<h2>Could not load interested events</h2><p>${escapeHtml(error.message)}</p>`;
     return;
@@ -171,20 +173,97 @@ async function loadInterested() {
   $("interested-count").textContent = String(events.length);
   $("interested-empty").hidden = events.length > 0;
 
-  $("interested-list").innerHTML = events.map((event) => {
+  const soonCutoff = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const futureCutoff = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+  const groups = [
+    {
+      key: "soon",
+      title: "Soon",
+      subtitle: "Next 30 days",
+      events: events.filter((event) => new Date(event.start_at) <= soonCutoff)
+    },
+    {
+      key: "future",
+      title: "Future",
+      subtitle: "31–90 days",
+      events: events.filter((event) => {
+        const start = new Date(event.start_at);
+        return start > soonCutoff && start <= futureCutoff;
+      })
+    },
+    {
+      key: "far-future",
+      title: "Far future",
+      subtitle: "More than 90 days away",
+      events: events.filter((event) => new Date(event.start_at) > futureCutoff)
+    }
+  ];
+
+  $("interested-groups").innerHTML = groups.map(renderInterestedGroup).join("");
+}
+
+function renderInterestedGroup(group) {
+  if (!group.events.length) {
+    return `
+      <section class="interest-group">
+        <div class="interest-group-heading">
+          <div>
+            <h2>${escapeHtml(group.title)}</h2>
+            <p class="muted">${escapeHtml(group.subtitle)}</p>
+          </div>
+          <span class="count-badge">0</span>
+        </div>
+        <p class="muted group-empty">No events in this period.</p>
+      </section>`;
+  }
+
+  const rows = group.events.map((event) => {
     const links = [];
-    if (event.event_url) links.push(`<a href="${escapeAttr(event.event_url)}" target="_blank" rel="noopener">Event page</a>`);
-    if (event.ticket_url) links.push(`<a href="${escapeAttr(event.ticket_url)}" target="_blank" rel="noopener">Tickets</a>`);
+    if (event.event_url) {
+      links.push(`<a href="${escapeAttr(event.event_url)}" target="_blank" rel="noopener">Event</a>`);
+    }
+    if (event.ticket_url) {
+      links.push(`<a href="${escapeAttr(event.ticket_url)}" target="_blank" rel="noopener">Tickets</a>`);
+    }
 
     return `
-      <article class="interested-card">
-        <div class="meta">${escapeHtml(formatDateTime(event.start_at))}${event.venue ? ` · ${escapeHtml(event.venue)}` : ""}</div>
-        <h3>${escapeHtml(event.title || "(Untitled event)")}</h3>
-        ${event.support ? `<p class="support">${escapeHtml(event.support)}</p>` : ""}
-        ${event.age_restriction ? `<p class="subtle">${escapeHtml(event.age_restriction)}</p>` : ""}
-        <div class="links">${links.join("")}</div>
-      </article>`;
+      <tr>
+        <td>${escapeHtml(formatDateTime(event.start_at))}</td>
+        <td><div class="event-title">${escapeHtml(event.title || "(Untitled event)")}</div></td>
+        <td>${escapeHtml(event.support || "")}</td>
+        <td>${escapeHtml(event.venue || "")}</td>
+        <td>${escapeHtml(event.age_restriction || "")}</td>
+        <td>${links.join(" · ")}</td>
+      </tr>`;
   }).join("");
+
+  return `
+    <section class="interest-group">
+      <div class="interest-group-heading">
+        <div>
+          <h2>${escapeHtml(group.title)}</h2>
+          <p class="muted">${escapeHtml(group.subtitle)}</p>
+        </div>
+        <span class="count-badge">${group.events.length}</span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="interested-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Event</th>
+              <th>Support</th>
+              <th>Venue</th>
+              <th>Age</th>
+              <th>Links</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
 }
 
 $("refresh-interested").addEventListener("click", loadInterested);

@@ -16,6 +16,24 @@ if (!config.SUPABASE_URL || !config.SUPABASE_PUBLISHABLE_KEY ||
 const supabase = createClient(config.SUPABASE_URL, config.SUPABASE_PUBLISHABLE_KEY);
 const $ = (id) => document.getElementById(id);
 
+function diagnosticMessage(error, layer) {
+  const raw = String((error && error.message) || error || "unknown error");
+  const message = raw
+    .replace(/eyJ[A-Za-z0-9_-]{8,}(?:\.[A-Za-z0-9_-]+)*/g, "[JWT]")
+    .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, "[KEY]")
+    .replace(/authorization:\s*bearer\s+\S+/gi, "Authorization: Bearer [REDACTED]")
+    .replace(/apikey[=:]\s*\S+/gi, "apikey=[REDACTED]");
+  const status = Number(error && error.status);
+  const statusText = Number.isFinite(status) && status > 0 ? `HTTP ${status}` : "no HTTP status";
+  let host = "configured database";
+  try {
+    host = new URL(config.SUPABASE_URL).host;
+  } catch (_error) {
+    host = "configured database";
+  }
+  return `${layer} failed contacting ${host} (${statusText}): ${message}`;
+}
+
 const authView = $("auth-view");
 const appView = $("app-view");
 const authMessage = $("auth-message");
@@ -32,6 +50,8 @@ let queue = [];
 let currentEvent = null;
 let allEvents = [];
 
+const UNLISTED_TIME = "Time not listed";
+
 function formatDateTime(value) {
   if (!value) return "";
   const d = new Date(value);
@@ -45,6 +65,33 @@ function formatDateTime(value) {
     minute: "2-digit"
   }).format(d);
 }
+
+function formatDateOnly(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(d);
+}
+
+function timeIsUnlisted(event) {
+  return String((event && event.doors_time) || "").startsWith(UNLISTED_TIME);
+}
+
+function formatWhen(event) {
+  if (!event) return "";
+  if (timeIsUnlisted(event)) {
+    const date = formatDateOnly(event.start_at);
+    return date ? `${date} · ${event.doors_time}` : event.doors_time;
+  }
+  return formatDateTime(event.start_at);
+}
+
+export { formatWhen, timeIsUnlisted };
 
 function formatShortDate(value) {
   if (!value) return "";
@@ -108,7 +155,7 @@ $("password-form").addEventListener("submit", async (e) => {
   const email = $("email").value.trim();
   const password = $("password").value;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  authMessage.textContent = error ? error.message : "";
+  authMessage.textContent = error ? diagnosticMessage(error, "frontend-auth") : "";
 });
 
 $("magic-form").addEventListener("submit", async (e) => {
@@ -122,7 +169,7 @@ $("magic-form").addEventListener("submit", async (e) => {
       emailRedirectTo: window.location.href
     }
   });
-  authMessage.textContent = error ? error.message : "Check your email for the sign-in link.";
+  authMessage.textContent = error ? diagnosticMessage(error, "frontend-auth") : "Check your email for the sign-in link.";
 });
 
 $("logout").addEventListener("click", async () => {
@@ -165,7 +212,7 @@ async function loadInterested() {
   if (error) {
     $("interested-groups").innerHTML = "";
     $("interested-empty").hidden = false;
-    $("interested-empty").innerHTML = `<h2>Could not load interested events</h2><p>${escapeHtml(error.message)}</p>`;
+    $("interested-empty").innerHTML = `<h2>Could not load interested events</h2><p>${escapeHtml(diagnosticMessage(error, "frontend-events"))}</p>`;
     return;
   }
 
@@ -229,7 +276,7 @@ function renderInterestedGroup(group) {
 
     return `
       <tr>
-        <td>${escapeHtml(formatDateTime(event.start_at))}</td>
+        <td>${escapeHtml(formatWhen(event))}</td>
         <td><div class="event-title">${escapeHtml(event.title || "(Untitled event)")}</div></td>
         <td>${escapeHtml(event.support || "")}</td>
         <td>${escapeHtml(event.venue || "")}</td>
@@ -282,7 +329,7 @@ async function loadReviewQueue() {
 
   if (error) {
     $("review-empty").hidden = false;
-    $("review-empty").innerHTML = `<h2>Could not load events</h2><p>${escapeHtml(error.message)}</p>`;
+    $("review-empty").innerHTML = `<h2>Could not load events</h2><p>${escapeHtml(diagnosticMessage(error, "frontend-events"))}</p>`;
     return;
   }
 
@@ -308,10 +355,11 @@ function showNextCard() {
   $("card-venue").textContent = currentEvent.venue || "";
   $("card-title").textContent = currentEvent.title || "(Untitled event)";
   $("card-support").textContent = supportText(currentEvent);
-  $("card-when").textContent = formatDateTime(currentEvent.start_at);
+  $("card-when").textContent = formatWhen(currentEvent);
 
-  $("card-doors").textContent = currentEvent.doors_time || "";
-  $("card-doors-row").hidden = !currentEvent.doors_time;
+  const showDoors = Boolean(currentEvent.doors_time) && !timeIsUnlisted(currentEvent);
+  $("card-doors").textContent = showDoors ? currentEvent.doors_time : "";
+  $("card-doors-row").hidden = !showDoors;
 
   $("card-age").textContent = currentEvent.age_restriction || "";
   $("card-age-row").hidden = !currentEvent.age_restriction;
@@ -342,7 +390,7 @@ async function classifyCurrent(status) {
   $("dismiss").disabled = false;
 
   if (error) {
-    alert(`Could not update event: ${error.message}`);
+    alert(diagnosticMessage(error, "frontend-review-update"));
     return;
   }
 
@@ -378,7 +426,7 @@ async function loadAllEvents() {
     .order("start_at", { ascending: true });
 
   if (error) {
-    $("table-message").textContent = error.message;
+    $("table-message").textContent = diagnosticMessage(error, "frontend-events");
     return;
   }
 
@@ -412,7 +460,7 @@ function renderTable() {
 
     return `
       <tr>
-        <td>${escapeHtml(formatDateTime(event.start_at))}</td>
+        <td>${escapeHtml(formatWhen(event))}</td>
         <td>
           <div class="event-title">${escapeHtml(event.title || "(Untitled event)")}</div>
           ${event.source ? `<div class="subtle">${escapeHtml(event.source)}</div>` : ""}
@@ -459,7 +507,7 @@ async function updateStatusFromTable(e) {
   select.disabled = false;
 
   if (error) {
-    alert(`Could not update event: ${error.message}`);
+    alert(diagnosticMessage(error, "frontend-review-update"));
     await loadAllEvents();
     return;
   }

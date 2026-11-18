@@ -48,6 +48,9 @@ const tabTable = $("tab-table");
 
 let queue = [];
 let currentEvent = null;
+let reviewHistory = [];
+let reviewBusy = false;
+let reviewGeneration = 0;
 let allEvents = [];
 
 const UNLISTED_TIME = "Time not listed";
@@ -315,7 +318,17 @@ function renderInterestedGroup(group) {
 
 $("refresh-interested").addEventListener("click", loadInterested);
 
+function setReviewBusy(busy) {
+  reviewBusy = busy;
+  $("interested").disabled = busy;
+  $("dismiss").disabled = busy;
+}
+
 async function loadReviewQueue() {
+  reviewGeneration += 1;
+  const generation = reviewGeneration;
+  reviewHistory = [];
+  setReviewBusy(false);
   $("review-empty").hidden = true;
   $("event-card").hidden = true;
 
@@ -326,6 +339,8 @@ async function loadReviewQueue() {
     .eq("review_status", "unreviewed")
     .gte("start_at", now)
     .order("start_at", { ascending: true });
+
+  if (generation !== reviewGeneration) return;
 
   if (error) {
     $("review-empty").hidden = false;
@@ -343,6 +358,13 @@ function showNextCard() {
   $("queue-count").textContent = String(queue.length);
 
   if (!currentEvent) {
+    const undoNote = reviewHistory.length
+      ? "<p>Backspace restores the last event classified in this session.</p>"
+      : "";
+    $("review-empty").innerHTML = `
+      <h2>Review queue is clear</h2>
+      <p>No upcoming unreviewed events remain.</p>
+      ${undoNote}`;
     $("event-card").hidden = true;
     $("review-empty").hidden = false;
     return;
@@ -372,29 +394,65 @@ function showNextCard() {
 }
 
 async function classifyCurrent(status) {
-  if (!currentEvent) return;
+  if (!currentEvent || reviewBusy) return;
 
-  const eventId = currentEvent.id;
-  $("interested").disabled = true;
-  $("dismiss").disabled = true;
+  const generation = reviewGeneration;
+  const event = currentEvent;
+  const reviewedAt = new Date().toISOString();
+  setReviewBusy(true);
 
   const { error } = await supabase
     .from("events")
     .update({
       review_status: status,
-      reviewed_at: new Date().toISOString()
+      reviewed_at: reviewedAt
     })
-    .eq("id", eventId);
+    .eq("id", event.id);
 
-  $("interested").disabled = false;
-  $("dismiss").disabled = false;
+  if (generation !== reviewGeneration) return;
+
+  setReviewBusy(false);
 
   if (error) {
     alert(diagnosticMessage(error, "frontend-review-update"));
     return;
   }
 
-  queue.shift();
+  event.review_status = status;
+  event.reviewed_at = reviewedAt;
+  if (queue[0] === event) queue.shift();
+  reviewHistory.push(event);
+  showNextCard();
+}
+
+async function undoLastClassification() {
+  if (reviewBusy || reviewHistory.length === 0) return;
+
+  const generation = reviewGeneration;
+  const event = reviewHistory[reviewHistory.length - 1];
+  setReviewBusy(true);
+
+  const { error } = await supabase
+    .from("events")
+    .update({
+      review_status: "unreviewed",
+      reviewed_at: null
+    })
+    .eq("id", event.id);
+
+  if (generation !== reviewGeneration) return;
+
+  setReviewBusy(false);
+
+  if (error) {
+    alert(diagnosticMessage(error, "frontend-review-update"));
+    return;
+  }
+
+  reviewHistory.pop();
+  event.review_status = "unreviewed";
+  event.reviewed_at = null;
+  queue.unshift(event);
   showNextCard();
 }
 
@@ -403,8 +461,17 @@ $("dismiss").addEventListener("click", () => classifyCurrent("not_interested"));
 $("refresh-review").addEventListener("click", loadReviewQueue);
 
 document.addEventListener("keydown", (e) => {
-  if (reviewView.hidden || !currentEvent) return;
-  if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+  if (reviewView.hidden) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(tag)) return;
+
+  if (e.key === "Backspace" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    undoLastClassification();
+    return;
+  }
+
+  if (!currentEvent) return;
 
   if (e.key === "ArrowRight") {
     e.preventDefault();

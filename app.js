@@ -209,6 +209,8 @@ async function loadInterested() {
     .from("events")
     .select("*")
     .eq("review_status", "interested")
+    .is("missing_since", null)
+    .eq("removed", false)
     .gte("start_at", nowIso)
     .order("start_at", { ascending: true });
 
@@ -337,6 +339,8 @@ async function loadReviewQueue() {
     .from("events")
     .select("*")
     .eq("review_status", "unreviewed")
+    .is("missing_since", null)
+    .eq("removed", false)
     .gte("start_at", now)
     .order("start_at", { ascending: true });
 
@@ -489,6 +493,8 @@ async function loadAllEvents() {
   const { data, error } = await supabase
     .from("events")
     .select("*")
+    .is("missing_since", null)
+    .eq("removed", false)
     .gte("start_at", now)
     .order("start_at", { ascending: true });
 
